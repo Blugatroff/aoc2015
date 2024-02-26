@@ -1,0 +1,9 @@
+#!r6rs ; -*- mode: scheme; coding: utf-8 -*-
+(import (akku format manifest))
+
+(akku-package ("aoc" "1.0.0")
+  (synopsis "Advent of Code 2015")
+  (authors "Jasper Reef")
+  (license "MIT")
+  (depends ("chez-srfi" ">=0.0.0-akku <1.0.0"))
+)
