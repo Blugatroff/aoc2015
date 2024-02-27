@@ -1,7 +1,9 @@
 #!r6rs
 (library (aoc src util)
-  (export read-lines dbg list-span list-split list-concat compose curry enumerate sum product string-split count-dedup)
-  (import (rnrs) (rnrs mutable-pairs))
+  (export read-lines dbg list-span list-split list-concat compose curry enumerate sum product string-split count-dedup combine-hash)
+  (import
+    (rnrs) (rnrs mutable-pairs)
+    (srfi :113))
 
 (define (read-lines port)
   (let ((line (get-line port)))
@@ -65,14 +67,9 @@
         ((sep (string-ref s cursor)) (cons (substring s 0 cursor) (loop (substring s (+ 1 cursor) n) 0)))
         (else (loop s (+ 1 cursor)))))))
 
-(define (count-dedup lst)
-  (let loop ((lst lst) (counts '()))
-    (cond
-      ((null? lst) counts)
-      ((assoc (car lst) counts)
-       (let ((slot (assoc (car lst) counts)))
-         (begin
-           (set-cdr! slot (+ 1 (cdr slot)))
-           (loop (cdr lst) counts))))
-       (else (loop (cdr lst) (cons (cons (car lst) 1) counts)))))))
+(define (count-dedup comparator lst)
+  (bag->alist (alist->bag comparator (map (lambda (v) (cons v 1)) lst))))
 
+(define (combine-hash a b) (+ (* 31 a) b))
+
+)

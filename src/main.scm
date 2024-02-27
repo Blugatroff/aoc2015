@@ -1,16 +1,21 @@
-#!/usr/bin/env scheme-script
 #!r6rs
-(import
-  (rnrs base)
-  (rnrs io simple)
-  (rnrs io ports)
-  (rnrs control)
-  (rnrs mutable-pairs)
-  (rnrs lists)
-  (rnrs records syntactic)
-  (rnrs arithmetic bitwise)
-  (rnrs programs)
-  (aoc src util))
+(library (aoc src main)
+  (export main)
+  (import
+    (rnrs base)
+    (rnrs io simple)
+    (rnrs io ports)
+    (rnrs control)
+    (rnrs mutable-pairs)
+    (rnrs lists)
+    (rnrs records syntactic)
+    (rnrs arithmetic bitwise)
+    (rnrs bytevectors)
+    (rnrs programs)
+    (srfi :113)
+    (srfi :128)
+    (hashing md5)
+    (aoc src util))
 
 (define-record-type day (fields part-one part-two))
 
@@ -62,12 +67,11 @@
                lines))))))
 
 (define-record-type v2 (fields x y))
-; (record-type-equal-procedure (record-type-descriptor v2) (lambda (a b eq) (and (eq (v2-x a) (v2-x b)) (eq (v2-y a) (v2-y b)))))
 
-(define (hash-v2 p)
-  (bitwise-ior
-    (bitwise-arithmetic-shift-left (+ (bitwise-arithmetic-shift-left 1 15) (v2-x p)) 16)
-    (+ (bitwise-arithmetic-shift-left 1 15) (v2-y p))))
+(define (v2-eq a b) (and (equal? (v2-x a) (v2-x b)) (equal? (v2-y a) (v2-y b))))
+(define (v2-ord a b) (if (< (v2-x a) (v2-x b)) #t (< (v2-y a) (v2-y b))))
+(define (v2-hash v) (combine-hash (default-hash (v2-x v)) (default-hash (v2-y v))))
+(define v2-comparator (make-comparator v2? v2-eq v2-ord v2-hash))
 
 (define (pair-to-list p)
   (list (car p) (cdr p)))
@@ -91,9 +95,20 @@
                           (loop (cdr lst) b (cons (car lst) a)))))))
     (make-day
       (lambda (fail)
-        (length (count-dedup (map hash-v2 (path fail (string->list first-line))))))
+        (length (count-dedup v2-comparator (path fail (string->list first-line)))))
       (lambda (fail)
-        (length (count-dedup (map hash-v2 (list-concat (map (curry path fail) (pair-to-list (alternate (string->list first-line))))))))))))
+        (length (count-dedup v2-comparator (list-concat (map (curry path fail) (pair-to-list (alternate (string->list first-line)))))))))))
+
+(define (day4 lines)
+  (letrec ((input (car lines))
+        (part (lambda (zeroes)
+                (lambda (fail)
+                  (let loop ((i 0))
+                    (let ((h (md5->string (md5 (string->utf8 (string-append input (number->string i)))))))
+                      (if (equal? zeroes (substring h 0 (string-length zeroes)))
+                        i
+                        (loop (+ 1 i)))))))))
+    (make-day (part "00000") (part "000000"))))
 
 (define (run-day day path)
   (display "Part one: ")
@@ -101,7 +116,7 @@
   (display "\nPart two: ")
   (display (call/cc (day-part-two (call-with-input-file path (compose day read-lines))))))
 
-(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3)))
+(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3) (cons 4 day4)))
 
 (define (main args)
   (let ((args (cdr args)))
@@ -113,6 +128,5 @@
             (if (equal? day #f)
               (begin (display "This day is not implemented") (exit 1))
               (run-day (cdr day) (string-append "./inputs/" (number->string day-name) ".txt"))))))))
-
-(main (command-line))
+)
 
