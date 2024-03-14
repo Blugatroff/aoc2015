@@ -1,6 +1,24 @@
 #!r6rs
 (library (aoc src util)
-  (export read-lines dbg list-span list-split list-concat compose curry enumerate sum product string-split count-dedup combine-hash string-find string-find-char string-find-str pairs)
+  (export
+    read-lines
+    dbg
+    list-span
+    list-split
+    list-concat
+    compose
+    curry
+    enumerate
+    sum
+    product
+    count-dedup
+    combine-hash
+    string-find
+    string-find-char
+    string-find-str
+    pairs
+    string-starts-with
+  )
   (import
     (rnrs) (rnrs mutable-pairs)
     (srfi :113))
@@ -57,16 +75,6 @@
 (define (sum lst) (fold-left + 0 lst))
 (define (product lst) (fold-left * 1 lst))
 
-(define (string-split sep s)
-  (let loop ((s s) (cursor 0))
-    (let ((n (string-length s)))
-      (cond
-        ((eq? n 0) '())
-        ((and (eq? cursor 0) (sep (string-ref s 0))) (loop (substring s 1 n) 0))
-        ((= cursor n) (list (substring s 0 cursor)))
-        ((sep (string-ref s cursor)) (cons (substring s 0 cursor) (loop (substring s (+ 1 cursor) n) 0)))
-        (else (loop s (+ 1 cursor)))))))
-
 (define (string-find s char-or-string)
   (if (char? char-or-string)
     (string-find-char s char-or-string)
@@ -102,5 +110,10 @@
     [(null? l) '()]
     [(null? (cdr l)) '()]
     [else (cons (list (car l) (cadr l)) (pairs (cdr l)))]))
+
+(define (string-starts-with prefix s)
+  (if (< (string-length s) (string-length prefix))
+    #f
+    (equal? prefix (substring s 0 (string-length prefix)))))
 
 )

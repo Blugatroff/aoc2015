@@ -12,12 +12,14 @@
     (rnrs arithmetic bitwise)
     (rnrs bytevectors)
     (rnrs programs)
-    (only (srfi :1) any count take)
+    (rnrs unicode)
+    (only (srfi :1) any count take iota)
     (srfi :113)
     (srfi :128)
+    (only (srfi :152) string-split string-take-while string-drop-while)
     (hashing md5)
     (aoc src util)
-    (only (scheme) trace-lambda))
+    (only (scheme) trace-let trace-lambda))
 
 (define-record-type day (fields part-one part-two))
 
@@ -57,13 +59,13 @@
       (lambda (fail)
         (sum (map
                (lambda (line)
-                 (let ((sides (map mul-pair (pairs (map string->number (string-split (curry eq? #\x) line))))))
+                 (let ((sides (map mul-pair (pairs (map string->number (string-split line "x"))))))
                    (+ (apply min sides) (* 2 (apply + sides)))))
                lines)))
       (lambda (fail)
         (sum (map
                (lambda (line)
-                 (let* ((dimensions (map string->number (string-split (curry eq? #\x) line)))
+                 (let* ((dimensions (map string->number (string-split line "x")))
                         (wraps (map add-pair (pairs dimensions))))
                   (+ (product dimensions) (* 2 (apply min wraps)))))
                lines))))))
@@ -148,6 +150,53 @@
                                          (and (has-spaced-repeat chars) (contains-repeating-pair chars))))))
         (length (filter is-nice? lines))))))
 
+(define-record-type rect (fields x1 y1 x2 y2))
+(define-record-type point (fields x y))
+(define (rect-contains r p)
+  (and (>= (point-x p) (rect-x1 r)) (<= (point-x p) (rect-x2 r))
+       (>= (point-y p) (rect-y1 r)) (<= (point-y p) (rect-y2 r))))
+
+(define (day6 lines)
+  (letrec* ((parse-line-instr-kind (lambda (line)
+                                         (cond
+                                           [(string-starts-with "toggle" line) 'toggle]
+                                           [(string-starts-with "turn on" line) 'turn-on]
+                                           [(string-starts-with "turn off" line) 'turn-off])))
+                (parse-line-rect (lambda (line)
+                                   (letrec* ((r1 (string-drop-while line (compose not char-numeric?)))
+                                             (x1 (string->number (string-take-while r1 char-numeric?)))
+                                             (r2 (string-drop-while r1 char-numeric?))
+                                             (r3 (string-drop-while r2 (compose not char-numeric?)))
+                                             (y1 (string->number (string-take-while r3 char-numeric?)))
+                                             (r4 (string-drop-while (string-drop-while r3 char-numeric?) (compose not char-numeric?)))
+                                             (x2 (string->number (string-take-while r4 char-numeric?)))
+                                             (r5 (string-drop-while (string-drop-while r4 char-numeric?) (compose not char-numeric?)))
+                                             (y2 (string->number r5)))
+                                     (make-rect x1 y1 x2 y2))))
+                (parse-line (lambda (line)
+                              (cons (parse-line-instr-kind line) (parse-line-rect line))))
+                (instrs (map parse-line lines))
+                (rev-instrs (reverse instrs))
+                (determine-point-state (lambda (p)
+                                         (let loop ((state (lambda (a) a)) (instrs rev-instrs))
+                                           (cond
+                                             [(null? instrs) (state #f)]
+                                             [(not (rect-contains (cdar instrs) p)) (loop state (cdr instrs))]
+                                             [(eq? 'turn-on (caar instrs)) (state #t)]
+                                             [(eq? 'turn-off (caar instrs)) (state #f)]
+                                             [else (loop (compose not state) (cdr instrs))]))))
+                (determine-point-brightness (lambda (p)
+                                              (fold-left (lambda (brightness instr)
+                                                           (cond
+                                                             [(not (rect-contains (cdr instr) p)) brightness]
+                                                             [(eq? 'turn-on (car instr)) (+ brightness 1)]
+                                                             [(eq? 'turn-off (car instr)) (max 0 (- brightness 1))]
+                                                             [else (+ brightness 2)])) 0 instrs)))
+                (all-points (apply append (map (lambda (x) (map (lambda (y) (make-point x y)) (iota 1000)))
+                                               (iota 1000)))))
+    (make-day (lambda (fail) (count determine-point-state all-points))
+              (lambda (fail) (fold-left (lambda (sum point) (+ sum (determine-point-brightness point))) 0 all-points)))))
+
 (define (run-day mkDay file)
   (let* ((lines (read-lines file))
          (day (mkDay lines)))
@@ -156,7 +205,7 @@
     (display "\nPart two: ")
     (display (call/cc (day-part-two day)))))
 
-(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3) (cons 4 day4) (cons 5 day5)))
+(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3) (cons 4 day4) (cons 5 day5) (cons 6 day6)))
 
 (define (main args)
   (let* ((args (cdr args))
