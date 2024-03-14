@@ -12,10 +12,12 @@
     (rnrs arithmetic bitwise)
     (rnrs bytevectors)
     (rnrs programs)
+    (only (srfi :1) any count take)
     (srfi :113)
     (srfi :128)
     (hashing md5)
-    (aoc src util))
+    (aoc src util)
+    (only (scheme) trace-lambda))
 
 (define-record-type day (fields part-one part-two))
 
@@ -110,16 +112,55 @@
                         (loop (+ 1 i)))))))))
     (make-day (part "00000") (part "000000"))))
 
-(define (run-day day path)
-  (display "Part one: ")
-  (display (call/cc (day-part-one (call-with-input-file path (compose day read-lines)))))
-  (display "\nPart two: ")
-  (display (call/cc (day-part-two (call-with-input-file path (compose day read-lines))))))
+(define (foo a) (display a) (newline) a)
 
-(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3) (cons 4 day4)))
+(define (day5 lines)
+  (make-day
+    (lambda (fail)
+      (letrec ((vowels (string->list "aeiou"))
+               (forbidden (list "ab" "cd" "pq" "xy"))
+               (n-vowels (lambda (str) (count (lambda (c) (member c vowels)) (string->list str))))
+               (has-double? (lambda (str) (cond
+                                            [(< (string-length str) 2) #f]
+                                            [(equal? (string-ref str 0) (string-ref str 1)) #t]
+                                            [else (has-double? (substring str 1 (string-length str)))])))
+               (nothing-forbidden? (lambda (str)
+                                     (not (any (lambda (forbidden) (string-find str forbidden)) forbidden))))
+               (is-nice? (lambda (str) (and (>= (n-vowels str) 3) (has-double? str) (nothing-forbidden? str)))))
+        (count (lambda (str) (and (is-nice? str))) lines)))
+    (lambda (fail)
+      (letrec ((remove-overlapping (lambda (pairs) (cond
+                                                     [(null? pairs) '()]
+                                                     [(null? (cdr pairs)) pairs]
+                                                     [(and (equal? (caar pairs) (cadar pairs)) (equal? (car pairs) (cadr pairs))) (cons (car pairs) (cddr pairs))]
+                                                     [else (cons (car pairs) (remove-overlapping (cdr pairs)))])))
+               (has-spaced-repeat (lambda (chars)
+                                    (cond
+                                      [(null? chars) #f]
+                                      [(null? (cdr chars)) #f]
+                                      [(null? (cddr chars)) #f]
+                                      [(equal? (car chars) (caddr chars)) #t]
+                                      [else (has-spaced-repeat (cdr chars))])))
+               (contains-repeating-pair (lambda (chars) (any (lambda (entry) (< 1 (cdr entry)))
+                                                             (count-dedup (make-default-comparator)
+                                                                          (remove-overlapping (pairs chars))))))
+               (is-nice? (lambda (str) (let ((chars (string->list str)))
+                                         (and (has-spaced-repeat chars) (contains-repeating-pair chars))))))
+        (length (filter is-nice? lines))))))
+
+(define (run-day mkDay file)
+  (let* ((lines (read-lines file))
+         (day (mkDay lines)))
+    (display "Part one: ")
+    (display (call/cc (day-part-one day)))
+    (display "\nPart two: ")
+    (display (call/cc (day-part-two day)))))
+
+(define days (list (cons 1 day1) (cons 2 day2) (cons 3 day3) (cons 4 day4) (cons 5 day5)))
 
 (define (main args)
-  (let ((args (cdr args)))
+  (let* ((args (cdr args))
+         (stdin (member "--stdin" args)))
     (if (null? args) (begin (display "expected day") (exit 1)))
     (let ((day-name (string->number (car args))))
         (if (equal? day-name #f)
@@ -127,6 +168,9 @@
           (let ((day (assoc day-name days)))
             (if (equal? day #f)
               (begin (display "This day is not implemented") (exit 1))
-              (run-day (cdr day) (string-append "./inputs/" (number->string day-name) ".txt"))))))))
+              (if (member "--stdin" args)
+                (run-day (cdr day) (current-input-port))
+                (call-with-input-file (string-append "./inputs/" (number->string day-name) ".txt") (lambda (file)
+                                                                                                   (run-day (cdr day) file))))))))))
 )
 

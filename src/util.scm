@@ -1,6 +1,6 @@
 #!r6rs
 (library (aoc src util)
-  (export read-lines dbg list-span list-split list-concat compose curry enumerate sum product string-split count-dedup combine-hash)
+  (export read-lines dbg list-span list-split list-concat compose curry enumerate sum product string-split count-dedup combine-hash string-find string-find-char string-find-str pairs)
   (import
     (rnrs) (rnrs mutable-pairs)
     (srfi :113))
@@ -67,9 +67,40 @@
         ((sep (string-ref s cursor)) (cons (substring s 0 cursor) (loop (substring s (+ 1 cursor) n) 0)))
         (else (loop s (+ 1 cursor)))))))
 
+(define (string-find s char-or-string)
+  (if (char? char-or-string)
+    (string-find-char s char-or-string)
+    (string-find-str s char-or-string)))
+
+(define (string-find-char s c)
+  (let ((n (string-length s)))
+    (let loop ((cursor 0))
+      (cond
+        [(eq? cursor n) #f]
+        [(eq? c (string-ref s cursor)) cursor]
+        [else (loop (+ 1 cursor))]))))
+
+(define (string-find-str s target)
+  (let ((n (string-length s)))
+    (let loop ((cursor 0))
+      (if (= cursor n)
+        #f
+        (let ((i (string-find-char (substring s cursor n) (string-ref target 0))))
+          (cond
+            [(eq? i #f) (loop (+ 1 cursor))]
+            [(> (+ (string-length target) cursor) n) #f]
+            [(equal? target (substring s cursor (+ (string-length target) cursor))) cursor]
+            [else (loop (+ 1 cursor))]))))))
+
 (define (count-dedup comparator lst)
-  (bag->alist (alist->bag comparator (map (lambda (v) (cons v 1)) lst))))
+  (bag->alist (list->bag comparator lst)))
 
 (define (combine-hash a b) (+ (* 31 a) b))
+
+(define (pairs l)
+  (cond
+    [(null? l) '()]
+    [(null? (cdr l)) '()]
+    [else (cons (list (car l) (cadr l)) (pairs (cdr l)))]))
 
 )
