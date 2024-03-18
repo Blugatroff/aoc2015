@@ -6,8 +6,6 @@
     list-span
     list-split
     list-concat
-    compose
-    curry
     enumerate
     sum
     product
@@ -18,6 +16,15 @@
     string-find-str
     pairs
     string-starts-with
+    trace-show
+    apply-pair
+    lifted-or
+    lifted-and
+    ->
+    ->>
+    flip
+    match
+    match-lambda
   )
   (import
     (rnrs) (rnrs mutable-pairs)
@@ -56,15 +63,6 @@
     (if (null? (car lsts))
       (list-concat (cdr lsts))
       (cons (car (car lsts)) (list-concat (cons (cdr (car lsts)) (cdr lsts)))))))
-
-(define (compose . funs) 
-  (if (null? funs)
-    (lambda (x) x)
-    (let
-      ((next (apply compose (cdr funs))))
-      (lambda (x) ((car funs) (next x))))))
-
-(define (curry f x) (lambda (y) (f x y)))
 
 (define (enumerate lst)
   (let loop ((i 0) (lst lst))
@@ -115,5 +113,82 @@
   (if (< (string-length s) (string-length prefix))
     #f
     (equal? prefix (substring s 0 (string-length prefix)))))
+
+(define (trace-show name v)
+  (display name) (display ": ") (display v) (newline) v)
+
+(define (apply-pair f p)
+  (f (car p) (cdr p)))
+
+(define-syntax lifted-or
+  (syntax-rules (helper)
+    ((_ helper x r) (or . r))
+    ((_ helper x r f rest ...)
+     (lifted-or helper x ((f x) . r) rest ...))
+    ((lifted-or fs ...)
+     (lambda (x) (lifted-or helper x () fs ...)))))
+
+(define-syntax lifted-and
+  (syntax-rules (helper)
+    ((_ helper x r) (and . r))
+    ((_ helper x r f rest ...)
+     (lifted-and helper x ((f x) . r) rest ...))
+    ((lifted-and fs ...)
+     (lambda (x) (lifted-and helper x () fs ...)))))
+
+(define-syntax reverse-order
+  (syntax-rules ()
+    ((_ e) (reverse-order e ()))
+    ((_ (e . rest) r) (reverse-order rest (e . r)))
+    ((_ () r) r)))
+
+(define-syntax ->
+  (syntax-rules ()
+    ((_ v)
+     v)
+    ((_ v (f ...))
+     (f ... v))
+    ((_ v f)
+     (f v))
+    ((_ v (f ...) fs ...)
+     (-> (f ... v) fs ...))
+    ((_ v f fs ...)
+     (-> (f v) fs ...))))
+
+(define-syntax ->>
+  (syntax-rules ()
+    ((_ (f ...))
+     (lambda (x) (f ... x)))
+    ((_ f)
+     f)
+    ((_ (f ...) fs ...)
+     (lambda (x) (-> x (f ...) fs ...)))
+    ((_ f fs ...)
+     (lambda (x) (-> (f x) fs ...)))))
+
+(define-syntax flip
+  (syntax-rules ()
+    ((_ f)
+     (lambda (a b) (f b a)))
+    ((_ f a b)
+     (f b a))))
+
+(define-syntax match-lambda
+  (syntax-rules ()
+    ((_ (args ...) patterns ...)
+     (lambda (args ... x)
+       (match x patterns ...)))))
+
+(define-syntax match
+  (syntax-rules ()
+    ((_ arg (case pat selection))
+     (let ((pat arg)) selection))
+    ((_ arg (case pat selection) next rest ...)
+     (let ((pat arg)) (match selection next rest ...)))
+    ((_ arg (case pat default selection))
+     (apply (case-lambda [pat selection] [x default]) arg))
+    ((_ arg (case pat default selection) next rest ...)
+     (apply (case-lambda [pat (match selection next rest ...)] [x default]) arg))
+    ))
 
 )
